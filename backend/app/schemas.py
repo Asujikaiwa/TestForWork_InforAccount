@@ -70,3 +70,17 @@ class BalanceOut(BaseModel):
 class BalancesOut(BaseModel):
     group_id: int
     balances: list[BalanceOut]
+
+
+class SettlementOut(BaseModel):
+    """One suggested payment: `from` pays `to` the amount."""
+
+    model_config = ConfigDict(populate_by_name=True)
+    from_: str = Field(alias="from")
+    to: str
+    amount: str
+
+
+class SettleUpOut(BaseModel):
+    group_id: int
+    payments: list[SettlementOut]

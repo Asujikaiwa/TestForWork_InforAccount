@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import repository as repo
 from app.domain.money import format_amount, parse_amount
+from app.domain.settle_up import Transfer, settle_up
 from app.domain.splits import allocate_equal, allocate_exact, compute_balances
 from app.errors import (
     ExpenseNotFound,
@@ -104,6 +105,11 @@ def group_balances(session: Session, group: Group) -> list[tuple[str, Decimal]]:
     paid = {names[uid]: total for uid, total in paid_by_id.items()}
     owed = {names[uid]: total for uid, total in owed_by_id.items()}
     return compute_balances(member_names(group), paid, owed)
+
+
+def group_settlements(session: Session, group: Group) -> list[Transfer]:
+    """Fewest payments that bring every member of the group to 0.00."""
+    return settle_up(group_balances(session, group))
 
 
 def _request_hash(

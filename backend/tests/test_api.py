@@ -299,3 +299,27 @@ def test_unknown_route_uses_the_error_envelope(client):
     response = client.get("/nope", headers={"X-User": "alice"})
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+# --- Optional: settle-up ---------------------------------------------------------------------
+def test_settle_up_suggests_payments_for_the_brief_example(client):
+    post_expense(client, DINNER)
+    response = client.get("/groups/1/settle-up", headers={"X-User": "bob"})
+    assert response.status_code == 200
+    assert response.json() == {
+        "group_id": 1,
+        "payments": [
+            {"from": "bob", "to": "alice", "amount": "333.33"},
+            {"from": "carol", "to": "alice", "amount": "333.33"},
+        ],
+    }
+
+
+def test_settle_up_is_empty_when_everyone_is_even(client):
+    assert client.get("/groups/1/settle-up", headers={"X-User": "alice"}).json()["payments"] == []
+
+
+def test_settle_up_requires_membership(client):
+    response = client.get("/groups/2/settle-up", headers={"X-User": "alice"})
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "GROUP_NOT_FOUND"

@@ -16,6 +16,8 @@ from app.schemas import (
     ExpenseOut,
     GroupDetailOut,
     GroupOut,
+    SettlementOut,
+    SettleUpOut,
     ShareOut,
 )
 
@@ -88,5 +90,16 @@ def get_balances(session: SessionDep, group: MemberGroup) -> BalancesOut:
         balances=[
             BalanceOut(member=m, balance=format_amount(b))
             for m, b in services.group_balances(session, group)
+        ],
+    )
+
+
+@router.get("/{group_id}/settle-up", response_model=SettleUpOut)
+def get_settle_up(session: SessionDep, group: MemberGroup) -> SettleUpOut:
+    return SettleUpOut(
+        group_id=group.id,
+        payments=[
+            SettlementOut(from_=payer, to=payee, amount=format_amount(amount))
+            for payer, payee, amount in services.group_settlements(session, group)
         ],
     )
