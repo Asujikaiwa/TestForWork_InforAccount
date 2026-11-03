@@ -40,6 +40,10 @@ export function describeError(error: unknown): string {
         ? `Not a member of this group: ${members.join(", ")}.`
         : "Everyone in the split, and the payer, must be a member of this group.";
     }
+    case "NOT_PAYMENT_PARTY":
+      return "Only the person paying or the person being paid can record a repayment.";
+    case "PAYMENT_TO_SELF":
+      return "Choose two different people: someone can't pay themselves back.";
     case "EMPTY_SPLIT":
       return "Choose at least one member to split with.";
     case "IDEMPOTENCY_KEY_REUSED":

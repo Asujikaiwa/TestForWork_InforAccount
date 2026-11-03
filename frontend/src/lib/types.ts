@@ -32,3 +32,22 @@ export type NewExpense = {
   amount: string;
   split: Split;
 };
+
+/** A recorded repayment: `from` paid `to` back. */
+export type Payment = {
+  id: number;
+  group_id: number;
+  from: string;
+  to: string;
+  amount: string;
+  created_by: string;
+  created_at: string;
+};
+
+export type NewPayment = { from: string; to: string; amount: string };
+
+/** A suggested payment from GET /settle-up. */
+export type Settlement = { from: string; to: string; amount: string };
+
+export type SettleUpResponse = { group_id: number; payments: Settlement[] };
+

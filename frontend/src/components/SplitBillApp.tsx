@@ -8,11 +8,14 @@ import { BalancesPanel } from "./BalancesPanel";
 import { ErrorBanner } from "./ErrorBanner";
 import { ExpenseForm } from "./ExpenseForm";
 import { ExpenseList } from "./ExpenseList";
+import { PaymentForm } from "./PaymentForm";
+import { PaymentList } from "./PaymentList";
+import { SettleUpPanel } from "./SettleUpPanel";
 
 export function SplitBillApp() {
   const [user, setUser] = useState<string>(KNOWN_USERS[0]);
   const [chosenGroupId, setChosenGroupId] = useState<number | null>(null);
-  // Bumped after every create/delete to refetch expenses and balances.
+  // Bumped after every create/delete/repayment to refetch everything that depends on it.
   const [version, setVersion] = useState(0);
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -51,6 +54,22 @@ export function SplitBillApp() {
     version,
     useCallback(
       (signal: AbortSignal) => api.getBalances(user, groupId!, signal),
+      [user, groupId],
+    ),
+  );
+  const settleUp = useApi(
+    scope,
+    version,
+    useCallback(
+      (signal: AbortSignal) => api.getSettleUp(user, groupId!, signal),
+      [user, groupId],
+    ),
+  );
+  const payments = useApi(
+    scope,
+    version,
+    useCallback(
+      (signal: AbortSignal) => api.listPayments(user, groupId!, signal),
       [user, groupId],
     ),
   );
@@ -103,19 +122,33 @@ export function SplitBillApp() {
 
       {groupId !== null && (
         <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-          <section className="rounded-lg border border-zinc-200 bg-white p-4">
-            <ErrorBanner error={group.error} />
-            {group.data ? (
-              <ExpenseForm
-                key={`${user}|${group.data.id}`}
-                user={user}
-                group={group.data}
-                onCreated={refresh}
-              />
-            ) : (
-              !group.error && <p className="text-sm text-zinc-500">Loading group…</p>
+          <div className="space-y-6">
+            <section className="rounded-lg border border-zinc-200 bg-white p-4">
+              <ErrorBanner error={group.error} />
+              {group.data ? (
+                <ExpenseForm
+                  key={`${user}|${group.data.id}`}
+                  user={user}
+                  group={group.data}
+                  onCreated={refresh}
+                />
+              ) : (
+                !group.error && <p className="text-sm text-zinc-500">Loading group…</p>
+              )}
+            </section>
+
+            {group.data && (
+              <section className="rounded-lg border border-zinc-200 bg-white p-4">
+                <h2 className="mb-2 text-lg font-semibold">Record a repayment</h2>
+                <PaymentForm
+                  key={`${user}|${group.data.id}`}
+                  user={user}
+                  group={group.data}
+                  onRecorded={refresh}
+                />
+              </section>
             )}
-          </section>
+          </div>
 
           <div className="space-y-6">
             <section className="rounded-lg border border-zinc-200 bg-white p-4">
@@ -125,6 +158,22 @@ export function SplitBillApp() {
                 <BalancesPanel balances={balances.data.balances} />
               ) : (
                 !balances.error && <p className="text-sm text-zinc-500">Loading balances…</p>
+              )}
+            </section>
+
+            <section className="rounded-lg border border-zinc-200 bg-white p-4">
+              <h2 className="mb-2 text-lg font-semibold">Settle up</h2>
+              <ErrorBanner error={settleUp.error} />
+              {settleUp.data ? (
+                <SettleUpPanel
+                  key={`${user}|${groupId}`}
+                  user={user}
+                  groupId={groupId}
+                  suggestions={settleUp.data.payments}
+                  onRecorded={refresh}
+                />
+              ) : (
+                !settleUp.error && <p className="text-sm text-zinc-500">Loading suggestions…</p>
               )}
             </section>
 
@@ -140,6 +189,16 @@ export function SplitBillApp() {
                 />
               ) : (
                 !expenses.error && <p className="text-sm text-zinc-500">Loading expenses…</p>
+              )}
+            </section>
+
+            <section className="rounded-lg border border-zinc-200 bg-white p-4">
+              <h2 className="mb-2 text-lg font-semibold">Repayments</h2>
+              <ErrorBanner error={payments.error} />
+              {payments.data ? (
+                <PaymentList payments={payments.data} />
+              ) : (
+                !payments.error && <p className="text-sm text-zinc-500">Loading repayments…</p>
               )}
             </section>
           </div>

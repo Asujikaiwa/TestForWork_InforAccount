@@ -12,6 +12,9 @@ import type {
   Group,
   GroupDetail,
   NewExpense,
+  NewPayment,
+  Payment,
+  SettleUpResponse,
 } from "./types";
 
 export class ApiError extends Error {
@@ -113,6 +116,24 @@ export const api = {
     request<Expense>(user, `${groupPath(groupId)}/expenses`, {
       method: "POST",
       body: expense,
+      idempotencyKey,
+    }),
+
+  getSettleUp: (user: string, groupId: number, signal?: AbortSignal) =>
+    request<SettleUpResponse>(user, `${groupPath(groupId)}/settle-up`, { signal }),
+
+  listPayments: (user: string, groupId: number, signal?: AbortSignal) =>
+    request<Payment[]>(user, `${groupPath(groupId)}/payments`, { signal }),
+
+  createPayment: (
+    user: string,
+    groupId: number,
+    payment: NewPayment,
+    idempotencyKey: string,
+  ) =>
+    request<Payment>(user, `${groupPath(groupId)}/payments`, {
+      method: "POST",
+      body: payment,
       idempotencyKey,
     }),
 
