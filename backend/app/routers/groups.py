@@ -8,7 +8,7 @@ from app import repository as repo
 from app import services
 from app.deps import CurrentUser, MemberGroup, SessionDep, idempotency_key
 from app.domain.money import format_amount
-from app.models import Expense
+from app.models import Expense, Payment
 from app.schemas import (
     BalanceOut,
     BalancesOut,
@@ -16,6 +16,8 @@ from app.schemas import (
     ExpenseOut,
     GroupDetailOut,
     GroupOut,
+    PaymentCreate,
+    PaymentOut,
     SettlementOut,
     SettleUpOut,
     ShareOut,
@@ -37,6 +39,18 @@ def expense_out(expense: Expense) -> ExpenseOut:
         ],
         created_by=expense.created_by.username,
         created_at=expense.created_at,
+    )
+
+
+def payment_out(payment: Payment) -> PaymentOut:
+    return PaymentOut(
+        id=payment.id,
+        group_id=payment.group_id,
+        from_=payment.from_user.username,
+        to=payment.to_user.username,
+        amount=format_amount(payment.amount),
+        created_by=payment.created_by.username,
+        created_at=payment.created_at,
     )
 
 
@@ -103,3 +117,28 @@ def get_settle_up(session: SessionDep, group: MemberGroup) -> SettleUpOut:
             for payer, payee, amount in services.group_settlements(session, group)
         ],
     )
+
+
+@router.post(
+    "/{group_id}/payments",
+    response_model=PaymentOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={200: {"description": "Idempotent replay: the original repayment"}},
+)
+def create_payment(
+    payload: PaymentCreate,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    group: MemberGroup,
+    key: Annotated[str | None, Depends(idempotency_key)],
+) -> PaymentOut:
+    payment, created = services.create_payment(session, user, group, payload, key)
+    if not created:
+        response.status_code = status.HTTP_200_OK
+    return payment_out(payment)
+
+
+@router.get("/{group_id}/payments", response_model=list[PaymentOut])
+def list_payments(session: SessionDep, group: MemberGroup) -> list[PaymentOut]:
+    return [payment_out(p) for p in repo.list_payments(session, group.id)]

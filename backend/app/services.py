@@ -15,9 +15,11 @@ from app.errors import (
     IdempotencyKeyReused,
     MemberNotInGroup,
     NotPayer,
+    NotPaymentParty,
+    PaymentToSelf,
 )
-from app.models import Expense, Group, User
-from app.schemas import EqualSplit, ExpenseCreate
+from app.models import Expense, Group, Payment, User
+from app.schemas import EqualSplit, ExpenseCreate, PaymentCreate
 
 
 def member_names(group: Group) -> list[str]:
@@ -99,12 +101,71 @@ def delete_expense(session: Session, user: User, group: Group, expense_id: int) 
     session.commit()
 
 
+def create_payment(
+    session: Session,
+    user: User,
+    group: Group,
+    payload: PaymentCreate,
+    idempotency_key: str | None,
+) -> tuple[Payment, bool]:
+    """Record a repayment between two members. Returns (payment, created).
+
+    Only the two people involved may record it, so nobody can invent a
+    repayment between other members. Idempotency works like expenses.
+    """
+    ids = {m.user.username: m.user_id for m in group.members}
+
+    amount = parse_amount(payload.amount)
+    outsiders = list(dict.fromkeys(n for n in [payload.from_, payload.to] if n not in ids))
+    if outsiders:
+        raise MemberNotInGroup(
+            f"Not a member of this group: {', '.join(outsiders)}.", {"members": outsiders}
+        )
+    if payload.from_ == payload.to:
+        raise PaymentToSelf("A member cannot pay themselves.")
+    if user.username not in (payload.from_, payload.to):
+        raise NotPaymentParty("Only the payer or the receiver can record a repayment.")
+
+    canonical = {"from": payload.from_, "to": payload.to, "amount": format_amount(amount)}
+    request_hash = _hash(canonical)
+    values = {
+        "group_id": group.id,
+        "from_user_id": ids[payload.from_],
+        "to_user_id": ids[payload.to],
+        "amount": amount,
+        "created_by_id": user.id,
+        "idempotency_key": idempotency_key,
+        "request_hash": request_hash if idempotency_key else None,
+    }
+
+    payment_id = repo.insert_payment(session, values)
+    if payment_id is None:
+        existing = repo.get_payment_by_key(session, group.id, idempotency_key or "")
+        if existing is None:  # pragma: no cover - cannot happen with the unique constraint
+            raise RuntimeError("idempotency conflict without a matching row")
+        if existing.request_hash != request_hash:
+            raise IdempotencyKeyReused(
+                "This Idempotency-Key was already used for a different repayment."
+            )
+        return existing, False
+
+    session.commit()
+    payment = repo.get_payment(session, group.id, payment_id)
+    assert payment is not None
+    return payment, True
+
+
 def group_balances(session: Session, group: Group) -> list[tuple[str, Decimal]]:
-    paid_by_id, owed_by_id = repo.paid_and_owed(session, group.id)
     names = {m.user_id: m.user.username for m in group.members}
-    paid = {names[uid]: total for uid, total in paid_by_id.items()}
-    owed = {names[uid]: total for uid, total in owed_by_id.items()}
-    return compute_balances(member_names(group), paid, owed)
+
+    def by_name(totals: dict[int, Decimal]) -> dict[str, Decimal]:
+        return {names[user_id]: amount for user_id, amount in totals.items()}
+
+    paid, owed = repo.paid_and_owed(session, group.id)
+    sent, received = repo.sent_and_received(session, group.id)
+    return compute_balances(
+        member_names(group), by_name(paid), by_name(owed), by_name(sent), by_name(received)
+    )
 
 
 def group_settlements(session: Session, group: Group) -> list[Transfer]:
@@ -116,12 +177,17 @@ def _request_hash(
     payload: ExpenseCreate, amount: Decimal, shares: list[tuple[str, Decimal]]
 ) -> str:
     """Fingerprint of the *normalised* request ("1000" and "1000.00" hash the same)."""
-    canonical = {
-        "description": payload.description,
-        "paid_by": payload.paid_by,
-        "amount": format_amount(amount),
-        "split_type": payload.split.type,
-        "shares": [[name, format_amount(share)] for name, share in shares],
-    }
+    return _hash(
+        {
+            "description": payload.description,
+            "paid_by": payload.paid_by,
+            "amount": format_amount(amount),
+            "split_type": payload.split.type,
+            "shares": [[name, format_amount(share)] for name, share in shares],
+        }
+    )
+
+
+def _hash(canonical: dict) -> str:
     encoded = json.dumps(canonical, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(encoded.encode()).hexdigest()

@@ -49,13 +49,26 @@ def compute_balances(
     members: Sequence[str],
     paid: Mapping[str, Decimal],
     owed: Mapping[str, Decimal],
+    sent: Mapping[str, Decimal] | None = None,
+    received: Mapping[str, Decimal] | None = None,
 ) -> list[tuple[str, Decimal]]:
-    """Net balance per member: what they paid minus their shares.
+    """Net balance per member.
 
-    Positive = the group owes them. Because every expense's shares sum to its
-    amount, the balances always sum to exactly 0.00.
+    balance = paid for expenses - own shares + repayments sent - repayments received
+
+    Positive = the group owes them. Every expense's shares sum to its amount,
+    and every repayment is sent by one member and received by another, so the
+    balances always sum to exactly 0.00.
     """
-    return [(m, paid.get(m, ZERO) - owed.get(m, ZERO)) for m in members]
+    sent = sent or {}
+    received = received or {}
+    return [
+        (
+            m,
+            paid.get(m, ZERO) - owed.get(m, ZERO) + sent.get(m, ZERO) - received.get(m, ZERO),
+        )
+        for m in members
+    ]
 
 
 def total(values: Iterable[Decimal]) -> Decimal:

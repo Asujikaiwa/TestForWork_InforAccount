@@ -68,6 +68,14 @@ class EmptySplit(AppError):
     status_code, code = 422, "EMPTY_SPLIT"
 
 
+class NotPaymentParty(AppError):
+    status_code, code = 403, "NOT_PAYMENT_PARTY"
+
+
+class PaymentToSelf(AppError):
+    status_code, code = 422, "PAYMENT_TO_SELF"
+
+
 class InvalidRequest(AppError):
     status_code, code = 422, "VALIDATION_ERROR"
 

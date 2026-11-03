@@ -48,9 +48,9 @@ def migrated_database():
 
 @pytest.fixture(autouse=True)
 def clean_expenses():
-    """Each test starts with the seed data and no expenses."""
+    """Each test starts with the seed data and no expenses or repayments."""
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE expense_shares, expenses RESTART IDENTITY"))
+        conn.execute(text("TRUNCATE expense_shares, expenses, payments RESTART IDENTITY"))
 
 
 @pytest.fixture

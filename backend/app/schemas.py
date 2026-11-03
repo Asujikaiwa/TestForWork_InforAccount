@@ -84,3 +84,23 @@ class SettlementOut(BaseModel):
 class SettleUpOut(BaseModel):
     group_id: int
     payments: list[SettlementOut]
+
+
+class PaymentCreate(BaseModel):
+    """A repayment: `from` pays `to` the amount."""
+
+    model_config = ConfigDict(extra="forbid")
+    from_: Username = Field(alias="from")
+    to: Username
+    amount: MoneyStr
+
+
+class PaymentOut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    id: int
+    group_id: int
+    from_: str = Field(alias="from")
+    to: str
+    amount: str
+    created_by: str
+    created_at: datetime

@@ -7,7 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.models import Expense, ExpenseShare, Group, GroupMember, User
+from app.models import Expense, ExpenseShare, Group, GroupMember, Payment, User
 
 
 def get_user(session: Session, username: str) -> User | None:
@@ -116,3 +116,54 @@ def paid_and_owed(session: Session, group_id: int) -> tuple[dict[int, Decimal], 
     paid = {user_id: amount for user_id, amount in paid_rows}
     owed = {user_id: amount for user_id, amount in owed_rows}
     return paid, owed
+
+
+def insert_payment(session: Session, values: dict) -> int | None:
+    """Same idempotent insert as expenses: None if the key was already used in the group."""
+    stmt = (
+        insert(Payment)
+        .values(**values)
+        .on_conflict_do_nothing(constraint="uq_payments_group_idempotency_key")
+        .returning(Payment.id)
+    )
+    return session.execute(stmt).scalar_one_or_none()
+
+
+def get_payment(session: Session, group_id: int, payment_id: int) -> Payment | None:
+    return session.scalar(
+        select(Payment).where(Payment.group_id == group_id, Payment.id == payment_id)
+    )
+
+
+def get_payment_by_key(session: Session, group_id: int, key: str) -> Payment | None:
+    return session.scalar(
+        select(Payment).where(Payment.group_id == group_id, Payment.idempotency_key == key)
+    )
+
+
+def list_payments(session: Session, group_id: int) -> list[Payment]:
+    stmt = (
+        select(Payment)
+        .where(Payment.group_id == group_id)
+        .order_by(Payment.created_at.desc(), Payment.id.desc())
+    )
+    return list(session.scalars(stmt))
+
+
+def sent_and_received(
+    session: Session, group_id: int
+) -> tuple[dict[int, Decimal], dict[int, Decimal]]:
+    """Per-user repayment totals, summed in NUMERIC."""
+    sent_rows = session.execute(
+        select(Payment.from_user_id, func.sum(Payment.amount))
+        .where(Payment.group_id == group_id)
+        .group_by(Payment.from_user_id)
+    )
+    received_rows = session.execute(
+        select(Payment.to_user_id, func.sum(Payment.amount))
+        .where(Payment.group_id == group_id)
+        .group_by(Payment.to_user_id)
+    )
+    sent = {user_id: amount for user_id, amount in sent_rows}
+    received = {user_id: amount for user_id, amount in received_rows}
+    return sent, received
