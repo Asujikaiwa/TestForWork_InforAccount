@@ -1,10 +1,13 @@
-# Development database. Start with:  docker compose up -d db
+# Start the API and PostgreSQL with one command:   docker compose up --build
+# API: http://localhost:8000 (docs at /docs). Database only: docker compose up -d db
+#
+# The credentials below are local-development placeholders, not secrets.
 services:
   db:
     image: postgres:16
     environment:
       POSTGRES_USER: splitbill
-      POSTGRES_PASSWORD: splitbill  # local development only
+      POSTGRES_PASSWORD: splitbill
       POSTGRES_DB: splitbill
     ports:
       - "5432:5432"
@@ -17,6 +20,16 @@ services:
       interval: 2s
       timeout: 3s
       retries: 20
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://splitbill:splitbill@db:5432/splitbill
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:
