@@ -76,6 +76,35 @@ Positive = the group owes this member money. Always sums to `"0.00"`.
   ]
 }
 ```
+Balance = paid for expenses − own shares + repayments sent − repayments received.
+
+## Optional extensions
+
+### `GET /groups/{group_id}/settle-up`
+The fewest payments that bring every balance to `"0.00"`.
+```json
+{
+  "group_id": 1,
+  "payments": [
+    { "from": "bob", "to": "alice", "amount": "333.33" },
+    { "from": "carol", "to": "alice", "amount": "333.33" }
+  ]
+}
+```
+
+### `POST /groups/{group_id}/payments`
+Records a repayment. Headers: `X-User` (must be `from` or `to`), optional `Idempotency-Key`
+(same behaviour as expenses: `201` new, `200` replay, `409` different body).
+```json
+{ "from": "bob", "to": "alice", "amount": "333.33" }
+```
+Response (also the shape of each item in `GET /groups/{group_id}/payments`, newest first):
+```json
+{
+  "id": 1, "group_id": 1, "from": "bob", "to": "alice", "amount": "333.33",
+  "created_by": "bob", "created_at": "2026-11-03T10:00:00Z"
+}
+```
 
 ## Errors
 
@@ -98,3 +127,5 @@ Every error uses the same body:
 | 422    | `MEMBER_NOT_IN_GROUP`   | Payer or a split member is not in the group                | `{ "members": ["dan"] }`           |
 | 422    | `EMPTY_SPLIT`           | No members / shares given                                  |                                    |
 | 409    | `IDEMPOTENCY_KEY_REUSED`| Same key reused with a different request body              |                                    |
+| 403    | `NOT_PAYMENT_PARTY`     | Repayment recorded by someone who is neither `from` nor `to` |                                  |
+| 422    | `PAYMENT_TO_SELF`       | Repayment with `from` equal to `to`                        |                                    |

@@ -7,7 +7,17 @@ accurate to the satang.
 - `frontend/`: Next.js 16, TypeScript, Tailwind CSS, Vitest, ESLint
 - `docs/API_CONTRACT.md`: request/response shapes and error codes shared by both sides
 
-## Setup from a fresh clone
+## Quick start with Docker (API + database)
+
+```bash
+docker compose up --build    # API on http://localhost:8000 (docs at /docs), PostgreSQL on :5432
+```
+
+The API container applies the migrations (schema + seed) before it starts. Then run the
+frontend as in step 3 below. If Docker Hub is unreachable, the base image can be swapped:
+`docker compose build --build-arg PYTHON_IMAGE=mirror.gcr.io/library/python:3.13-slim`.
+
+## Setup from a fresh clone (without Docker for the API)
 
 ### 1. Database (PostgreSQL 16)
 
@@ -50,7 +60,7 @@ The frontend proxies `/api/*` to the backend (`BACKEND_URL`, default `http://loc
 ## Tests and linting
 
 ```bash
-cd backend  && pytest                            # 96 tests, needs the splitbill_test database
+cd backend  && pytest                            # 317 tests, needs the splitbill_test database
 cd backend  && ruff check . && ruff format --check .
 cd frontend && npm run check                     # ESLint + TypeScript + 39 Vitest tests
 ```
@@ -69,6 +79,9 @@ Required cases and where they are tested (`backend/tests/test_api.py`):
 | Repeated Idempotency-Key creates one expense | `test_repeated_idempotency_key_creates_only_one_expense`, `tests/test_idempotency_concurrency.py` |
 | alice can neither read nor write group 2 | `test_alice_can_neither_read_nor_write_group_2` (all five group endpoints) |
 | Only the payer can delete | `test_only_the_payer_can_delete_an_expense`, `test_payer_is_who_paid_not_who_recorded` |
+
+Optional extensions are covered by `tests/test_settle_up.py` (pure function, including 200
+random groups checked against a brute-force minimum) and `tests/test_payments.py`.
 
 ## Key design decisions
 
@@ -120,6 +133,29 @@ without a database) → `repository.py` (all SQL). `errors.py` gives every failu
 envelope: `{"error": {"code", "message", "details"}}`, including validation errors, unknown
 routes and unexpected 500s (no stack traces or SQL leak to clients).
 
+**Settle-up: the fewest payments, not just a valid list.** `GET /groups/{id}/settle-up`
+works on the current balances in integer satang. The usual "largest debtor pays largest
+creditor" rule always settles everyone but is not always minimal: for balances
+−5, −4, −4, +5, +8 it needs 4 payments, while 3 suffice (−5 → +5, and both −4 → +8).
+The fewest payments for n members with non-zero balances is n − k, where k is the largest
+number of groups they can be split into such that each group sums to zero. The code finds that
+split with an exact search over subsets (3^n steps, used for up to 12 non-zero members, far
+more than these groups have; larger groups fall back to the greedy rule), then settles each
+group greedily, which takes exactly size − 1 payments inside a group that cannot be split
+further. This lives in `domain/settle_up.py` as a pure function.
+
+**Repayments.** `POST /groups/{id}/payments` records that one member paid another. A balance is
+paid − shares + sent − received, so the group total stays 0.00 and settle-up follows
+automatically. Only the payer or the receiver may record a repayment (so nobody can invent one
+between other members), a member cannot pay themselves, amounts follow the same money rules,
+and `Idempotency-Key` works exactly as for expenses. Repayments, like expenses, cannot be
+edited.
+
+**Containerisation.** `docker compose up --build` builds the API image (non-root user, no tests
+or `.env` in the image), waits for the database health check, runs `alembic upgrade head` and
+starts Uvicorn. The database service also creates `splitbill_test`, so `pytest` runs against
+it unchanged.
+
 **Frontend money and preview.** The frontend keeps every amount as integer satang. Input is
 parsed from the string digit by digit (never `parseFloat`), splits use the same algorithm as
 the backend, and display formats the whole part with `Intl.NumberFormat("th-TH")` and appends
@@ -158,14 +194,14 @@ for one group can never overwrite another.
 - No real authentication; `X-User` is trusted.
 - No CORS configuration: the browser talks to the backend through the Next.js proxy.
   `BACKEND_URL` is read when Next.js starts or builds.
-- The Docker Compose file starts PostgreSQL only and has not been tested on this machine;
-  the API runs locally.
-- Optional extensions (settle-up, repayments, containerised API) are not implemented.
-  Settle-up would be a pure function over the existing balances in `domain/splits.py` plus one
-  route.
+- Repayments cannot be deleted; a mistaken one is corrected by recording one in the other
+  direction.
+- Settle-up suggestions are computed on request and not stored; the exact search is used for
+  up to 12 members with a non-zero balance.
+- The frontend is not containerised (`npm run dev` as in step 3).
 
 ## Time spent
 
-About 6 hours over four days: roughly 2.5 hours building and testing the code with an AI
-assistant, and the rest setting up the local environment (Python, PostgreSQL), running the
+About 7 hours over five days: roughly 3.5 hours building and testing the code (including the
+optional extensions) with an AI assistant, and the rest setting up the local environment (Python, PostgreSQL), running the
 suite and reviewing the code and design decisions. See `AI_NOTES.md`.
