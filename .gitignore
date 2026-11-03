@@ -1,0 +1,12 @@
+# Personal study notes (Thai explanations for interview prep) - not part of the submission
+_study-notes/
+
+# Secrets
+.env
+.env.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
