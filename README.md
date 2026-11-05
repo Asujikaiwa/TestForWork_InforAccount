@@ -202,6 +202,7 @@ for one group can never overwrite another.
 
 ## Time spent
 
-About 7 hours over five days: roughly 3.5 hours building and testing the code (including the
-optional extensions) with an AI assistant, and the rest setting up the local environment (Python, PostgreSQL), running the
-suite and reviewing the code and design decisions. See `AI_NOTES.md`.
+About 7 hours over five days: roughly 3.5 hours directing and checking the build with an AI
+pair programmer (including the optional extensions), and the rest setting up the local
+environment (Python, PostgreSQL), running the suite, managing the repository and studying the
+code and design decisions. See `AI_NOTES.md` for who did what.

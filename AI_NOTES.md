@@ -1,15 +1,32 @@
 # AI notes
 
-## Tools used
+## How I worked
 
-- **Claude (Anthropic), in the Claude app**, with access to a cloud workspace (shell, Python,
-  Node, a local PostgreSQL 16, headless Chromium) and to this project folder on my computer.
+I directed this project and used **Claude (Anthropic), in the Claude app**, as an AI pair
+programmer with access to a cloud workspace (shell, Python, Node, PostgreSQL 16, headless
+Chromium) and to the project folder on my computer. Claude wrote most of the code, tests and
+documentation. My part was to decide what to build and in what order, approve each design
+decision after the trade-offs were explained, run and verify the project on my own machine,
+manage the repository, and study the code so that I can explain and change it.
 
-Claude generated almost all of the code, tests and documentation in this repository, and made
-the commits after running the checks below. I chose the scope and the order of work (frontend
-first against an agreed API contract, then backend), answered its questions about decisions
-such as 404 vs 403 and whether to attempt the optional extensions, set up and ran the project
-on my own Windows machine, and asked for explanations of each part.
+### My part
+
+- **Planning and scope.** Read the brief, asked for a plan split into reviewable parts, and set
+  the order: frontend first against a written API contract, then backend, then documentation,
+  then the optional extensions only after the required scope was tested.
+- **Design decisions.** Agreed to 404 (not 403) for non-members, money as strings parsed into
+  `Decimal`, leftover satang in listed order, and idempotency enforced by a database constraint
+  rather than in application code, after the assistant explained the options. Decided to
+  implement all three optional extensions and to show settle-up and repayments in the UI.
+- **Running it on my machine.** Installed Python and PostgreSQL 16 on Windows, chose the `C`
+  locale so the database uses UTF-8 rather than the Windows Thai code page, created the
+  databases, and ran the migrations and the backend test suite.
+- **Repository.** Chose the commit author, created the GitHub repository and pushed the history
+  part by part.
+- **Learning the code.** Asked for beginner-level explanations of every part (money handling,
+  split allocation, layers, 404, idempotency, settle-up) and am working through them.
+
+### What the AI did
 
 | Part | What the AI did |
 |---|---|
@@ -18,7 +35,7 @@ on my own Windows machine, and asked for explanations of each part.
 | Optional extensions | Settle-up algorithm, repayments, Dockerfile and Compose setup, their UI |
 | Tests | pytest suite (including the concurrency tests) and Vitest unit tests |
 | Frontend | Money/split logic, API client, form, preview, balances, list |
-| Verification | Browser end-to-end run against a throwaway mock and then the real backend |
+| Verification | Lint, type checks, test runs, browser end-to-end checks, Docker run |
 | Docs | READMEs, this file, Thai study notes for me (not committed) |
 
 ## Effective prompts
@@ -88,6 +105,8 @@ My prompts were in Thai; translated:
 
 ## Review process before each commit
 
+Automated gates, run on every commit:
+
 - `ruff check` and `ruff format --check` (backend), ESLint and `tsc --noEmit` (frontend).
 - Full test suites: pytest against real PostgreSQL 16 (317 tests, most of them generated
   settle-up cases) and Vitest (39 tests).
@@ -101,10 +120,14 @@ My prompts were in Thai; translated:
 - `docker compose up` run end to end: image built, migrations applied in the container, API
   answering, and the pytest suite run against the Compose database.
 - Checked that no `.env`, virtual environment, `node_modules` or personal notes are tracked.
-- On my own machine I installed Python and PostgreSQL 16, created the databases, ran the
-  migrations and ran the backend suite (96 passed).
 
-What I did not do before each commit: read every line myself. Most review was done through
-the automated checks above and the assistant's own re-reading. I am going through the code
-with the assistant's explanations, starting with money handling and split allocation, so that
-I can explain and change any part of it.
+My own checks:
+
+- Reproduced the setup on my Windows machine from the README (Python, PostgreSQL 16,
+  migrations) and ran the backend suite (96 passed at the time, before the extensions).
+- Asked what each command and installer option did before running it (for example the
+  `git push` commands and the PostgreSQL locale).
+
+I did not read every line myself before each commit; for that I relied on the automated checks
+above. I am now going through the code part by part with the assistant's explanations so that I
+can explain and change any of it.
