@@ -2,41 +2,14 @@
 
 ## How I worked
 
-I directed this project and used **Claude (Anthropic), in the Claude app**, as an AI pair
+I directed this project , and config
 programmer with access to a cloud workspace (shell, Python, Node, PostgreSQL 16, headless
-Chromium) and to the project folder on my computer. Claude wrote most of the code, tests and
-documentation. My part was to decide what to build and in what order, approve each design
+Chromium) and to the project folder on my computer. 
+write most of the code, tests and documentation and use ai together . 
+So was to decide what to build and in what order, approve each design
 decision after the trade-offs were explained, run and verify the project on my own machine,
-manage the repository, and study the code so that I can explain and change it.
+manage the repository, and study the code so that  use to work
 
-### My part
-
-- **Planning and scope.** Read the brief, asked for a plan split into reviewable parts, and set
-  the order: frontend first against a written API contract, then backend, then documentation,
-  then the optional extensions only after the required scope was tested.
-- **Design decisions.** Agreed to 404 (not 403) for non-members, money as strings parsed into
-  `Decimal`, leftover satang in listed order, and idempotency enforced by a database constraint
-  rather than in application code, after the assistant explained the options. Decided to
-  implement all three optional extensions and to show settle-up and repayments in the UI.
-- **Running it on my machine.** Installed Python and PostgreSQL 16 on Windows, chose the `C`
-  locale so the database uses UTF-8 rather than the Windows Thai code page, created the
-  databases, and ran the migrations and the backend test suite.
-- **Repository.** Chose the commit author, created the GitHub repository and pushed the history
-  part by part.
-- **Learning the code.** Asked for beginner-level explanations of every part (money handling,
-  split allocation, layers, 404, idempotency, settle-up) and am working through them.
-
-### What the AI did
-
-| Part | What the AI did |
-|---|---|
-| API contract | Drafted `docs/API_CONTRACT.md` before any code so both sides had one shape |
-| Backend | Models, migrations, domain functions, services, routes, error envelope |
-| Optional extensions | Settle-up algorithm, repayments, Dockerfile and Compose setup, their UI |
-| Tests | pytest suite (including the concurrency tests) and Vitest unit tests |
-| Frontend | Money/split logic, API client, form, preview, balances, list |
-| Verification | Lint, type checks, test runs, browser end-to-end checks, Docker run |
-| Docs | READMEs, this file, Thai study notes for me (not committed) |
 
 ## Effective prompts
 
@@ -121,13 +94,6 @@ Automated gates, run on every commit:
   answering, and the pytest suite run against the Compose database.
 - Checked that no `.env`, virtual environment, `node_modules` or personal notes are tracked.
 
-My own checks:
 
-- Reproduced the setup on my Windows machine from the README (Python, PostgreSQL 16,
-  migrations) and ran the backend suite (96 passed at the time, before the extensions).
-- Asked what each command and installer option did before running it (for example the
-  `git push` commands and the PostgreSQL locale).
 
-I did not read every line myself before each commit; for that I relied on the automated checks
-above. I am now going through the code part by part with the assistant's explanations so that I
-can explain and change any of it.
+
